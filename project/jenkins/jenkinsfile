@@ -1,185 +1,51 @@
-# Jenkins Pipeline for CI/CD Integration
 pipeline {
     agent any
     
     environment {
-        // FIXED: Single credential binding
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
-        // TODO: Replace with YOUR Docker Hub username
-        IMAGE_NAME = 'aviasul/flask-aws-monitor'
+        // Change to your actual Docker Hub username
+        DOCKER_HUB_USER = "your-username"
+        IMAGE_NAME = "aviya-jenkins-app"
     }
-    
+
     stages {
         stage('Clone Repository') {
             steps {
-                script {
-                    echo '========== Cloning Repository =========='
-                    // TODO: Replace with YOUR GitHub username
-                    git branch: 'main', url: 'https://github.com/Aviyasul/jenkins-docker-pipeline.git'
-                    echo '✓ Repository cloned successfully'
-                }
+                checkout scm // This pulls your files from GitHub
             }
         }
-        
-        stage('Parallel Checks') {
+
+        stage('Static Analysis (Parallel)') {
             parallel {
                 stage('Linting') {
-                    stages {
-                        stage('Python Linting - Flake8') {
-                            steps {
-                                script {
-                                    echo '========== Python Linting (Flake8) =========='
-                                    sh '''
-                                        echo "Running Flake8 for Python code quality..."
-                                        echo "Checking PEP 8 compliance..."
-                                        # Mock command - Real: flake8 app.py --max-line-length=100
-                                        echo "✓ Flake8 passed - No style issues found"
-                                    '''
-                                }
-                            }
-                        }
-                        
-                        stage('Shell Linting - ShellCheck') {
-                            steps {
-                                script {
-                                    echo '========== Shell Script Linting (ShellCheck) =========='
-                                    sh '''
-                                        echo "Running ShellCheck for shell scripts..."
-                                        echo "Analyzing bash script syntax..."
-                                        # Mock command - Real: find . -name "*.sh" -exec shellcheck {} \\;
-                                        echo "✓ ShellCheck passed - Scripts are valid"
-                                    '''
-                                }
-                            }
-                        }
-                        
-                        stage('Dockerfile Linting - Hadolint') {
-                            steps {
-                                script {
-                                    echo '========== Dockerfile Linting (Hadolint) =========='
-                                    sh '''
-                                        echo "Running Hadolint for Dockerfile..."
-                                        echo "Checking Docker best practices..."
-                                        # Mock command - Real: hadolint Dockerfile
-                                        echo "✓ Hadolint passed - Dockerfile follows best practices"
-                                    '''
-                                }
-                            }
-                        }
+                    steps {
+                        echo 'Running Flake8, ShellCheck, and Hadolint...'
+                        sh 'echo "Mock: Linting passed!"' 
                     }
                 }
-                
-                stage('Security Scan') {
-                    stages {
-                        stage('Python Security - Bandit') {
-                            steps {
-                                script {
-                                    echo '========== Python Security Scan (Bandit) =========='
-                                    sh '''
-                                        echo "Running Bandit security scanner..."
-                                        echo "Scanning Python code for vulnerabilities..."
-                                        # Mock command - Real: bandit -r app.py -f txt
-                                        echo "✓ Bandit scan completed - No security issues found"
-                                    '''
-                                }
-                            }
-                        }
-                        
-                        stage('Container Security - Trivy') {
-                            steps {
-                                script {
-                                    echo '========== Container Security Scan (Trivy) =========='
-                                    sh '''
-                                        echo "Preparing Trivy scanner for container security..."
-                                        echo "Will scan Docker image after build..."
-                                        # Mock command - Real: trivy image ${IMAGE_NAME}:${BUILD_NUMBER}
-                                        echo "✓ Trivy scanner ready"
-                                    '''
-                                }
-                            }
-                        }
+                stage('Security Scanning') {
+                    steps {
+                        echo 'Running Trivy and Bandit...'
+                        sh 'echo "Mock: Security scan passed!"'
                     }
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    echo '========== Building Docker Image =========='
-                    sh """
-                        echo "Building Docker image: ${IMAGE_NAME}:${BUILD_NUMBER}"
-                        docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
-                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest
-                        echo "✓ Docker image built successfully!"
-                        docker images | grep ${IMAGE_NAME}
-                    """
+                    echo "Building image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    // This uses the Dockerfile in your project/jenkins folder
+                    sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER} project/jenkins/"
                 }
             }
         }
-        
-        stage('Post-Build Security Scan') {
-            steps {
-                script {
-                    echo '========== Scanning Built Docker Image =========='
-                    sh """
-                        echo "Running Trivy on built image: ${IMAGE_NAME}:${BUILD_NUMBER}"
-                        echo "Checking for vulnerabilities in base images and dependencies..."
-                        # Mock command - Real: trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${BUILD_NUMBER}
-                        echo "✓ Security scan completed - Image is secure"
-                    """
-                }
-            }
-        }
-        
+
         stage('Push to Docker Hub') {
             steps {
-                script {
-                    echo '========== Pushing to Docker Hub =========='
-                    
-                    // FIXED: Use single quotes to prevent Groovy from interpolating the password
-                    // This keeps credentials secure and out of Jenkins logs
-                    sh '''
-                        echo "Logging in to Docker Hub..."
-                        echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
-                    '''
-                    
-                    // Use double quotes here because we need Groovy to interpolate IMAGE_NAME and BUILD_NUMBER
-                    sh """
-                        echo "Pushing image with build tag: ${IMAGE_NAME}:${BUILD_NUMBER}"
-                        docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-                        
-                        echo "Pushing image with latest tag: ${IMAGE_NAME}:latest"
-                        docker push ${IMAGE_NAME}:latest
-                        
-                        echo "Logging out from Docker Hub..."
-                        docker logout
-                        
-                        echo "✓ Images pushed successfully to Docker Hub!"
-                    """
-                }
+                echo "Mocking push to Docker Hub..."
+                sh 'echo "Successfully pushed to Docker Hub"'
             }
-        }
-    }
-    
-    post {
-        success {
-            echo '========================================='
-            echo '✓ Pipeline completed successfully!'
-            echo '========================================='
-            echo "Docker Image: ${IMAGE_NAME}:${BUILD_NUMBER}"
-            echo "Docker Hub URL: https://hub.docker.com/r/${IMAGE_NAME}"
-            echo 'All stages passed ✓'
-            echo '========================================='
-        }
-        failure {
-            echo '========================================='
-            echo '✗ Pipeline failed! Check logs for details.'
-            echo '========================================='
-        }
-        always {
-            echo 'Cleaning up workspace...'
-            cleanWs()
         }
     }
 }
